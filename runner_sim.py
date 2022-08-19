@@ -34,7 +34,7 @@ def main(args):
         logging.error(f"{e}. Might be a good idea to restart Server")
     
     finally:
-        print("Time: " + str(carla_runner.end_simulation_time - carla_runner.start_simulation_time))
+        print("Time: " + str(carla_runner.end_sim_time - carla_runner.start_sim_time))
 
 
 if __name__ == "__main__":
