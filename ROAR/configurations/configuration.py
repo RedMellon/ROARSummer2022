@@ -75,6 +75,8 @@ class Configuration(BaseModel):
                     "However, if it is smaller than the actual map, some weird things can happen")
     target_speed: int = 80
     pid_config_file_path: str = Field(default="./ROAR_Sim/configurations/pid_config.json")
+    pid_config_file_path_hills: str = Field(default="./ROAR/configurations/carla/carla_pid_fast_config_hills.json")
+    
     pid_config: dict = Field(
         default={
             60: {1, 23, }
@@ -88,5 +90,8 @@ class Configuration(BaseModel):
 
     simple_waypoint_local_planner_config_file_path: str = \
         Field(default="./ROAR_Sim/configurations/simple_waypoint_local_planner_config.json")
+    simple_waypoint_local_planner_config_file_path_hills: str = \
+        Field(default="./ROAR_Sim/configurations/simple_waypoint_local_planner_config_hills.json")
+
     max_speed: float = Field(default=200, description="maximum speed in which the vehicle can drive at")
     num_laps: int = Field(default=1, description="Number of laps to run for")

@@ -21,6 +21,8 @@ class PIDFastController(Controller):
         self.max_speed = self.agent.agent_settings.max_speed
         throttle_boundary = throttle_boundary
         self.steering_boundary = steering_boundary
+        
+        self.agent = agent
         self.config = json.load(Path(agent.agent_settings.pid_config_file_path).open(mode='r'))
         
         # useful variables
@@ -45,137 +47,75 @@ class PIDFastController(Controller):
         # set region
         if region != "":
             self.cur_region = region
-            print("Switched to: " + region)
+            # print("Switched to: " + region)
+            if region == "hills":
+                self.config = json.load(Path(self.agent.agent_settings.pid_config_file_path_hills).open(mode='r'))
+                self.lat_pid_controller.update_pid_config(self.config)
+            if region == "town2":
+                self.config = json.load(Path(self.agent.agent_settings.pid_config_file_path).open(mode='r'))
+                self.lat_pid_controller.update_pid_config(self.config)
         
         current_speed = Vehicle.get_speed(self.agent.vehicle)
         
         # run region-specific controller
         if self.cur_region == "town":
-            if sharp_error > 0.6 and current_speed > 85: # narrow turn
+            
+            error = abs(round(error, 3))
+            wide_error = abs(round(wide_error, 3))
+            sharp_error = abs(round(sharp_error, 3))
+            #print(sharp_error)
+            brake_exception = float(next_waypoint.record().split(",")[5]) == 0.987654321
+
+            if sharp_error > 0.6 and current_speed > 120: # narrow turn
                 throttle = -1
                 brake = 1
-            elif current_speed > self.max_speed:
-                throttle = 0.9
-                brake = 0
             else:
                 throttle = 1
                 brake = 0
+        elif self.cur_region == "town2":
+            
+            error = abs(round(error, 3))
+            wide_error = abs(round(wide_error, 3))
+            sharp_error = abs(round(sharp_error, 3))
+            #print(sharp_error)
+            brake_exception = float(next_waypoint.record().split(",")[5]) == 0.987654321
+            
+            if brake_exception and current_speed > 70: # force brake
+                throttle = -1
+                brake = 1
+                # print("force brake")
+                self.brake_on = True
+            elif sharp_error > 0.6 and current_speed > 80: # narrow turn
+                throttle = -1
+                brake = 1
+            else:
+                throttle = 1
+                brake = 0
+        
         elif self.cur_region == "hills":
+            
             # get errors from lat pid
             error = abs(round(error, 3))
             wide_error = abs(round(wide_error, 3))
             sharp_error = abs(round(sharp_error, 3))
-            #print(error, wide_error, sharp_error)
+            # print(error, wide_error, sharp_error)
 
-            # calculate change in pitch
-            pitch = float(next_waypoint.record().split(",")[4])
-            #print(next_waypoint.record())
-            
-            if pitch == 1.234567890:
-                # bypass pitch
-                self.pitch_bypass = True
-            elif pitch == 0.987654321:
-                # force break
-                self.force_brake = True
-            else:
-                self.pitch_bypass = False
-                self.force_brake = False
-                self.delta_pitch = pitch - self.old_pitch
-                self.old_pitch = pitch
+            # check for brake_exceptions
+            brake_exception = float(next_waypoint.record().split(",")[5]) == 0.987654321
+            # print(next_waypoint.record())
 
-            # throttle/brake control
-            if self.force_brake:
+            if brake_exception and current_speed > 70: # force brake
                 throttle = -1
                 brake = 1
-                #print("force break")
-            elif self.delta_pitch < -2.3 and current_speed > 75 and not self.pitch_bypass: # big bump
-                throttle = -1
-                brake = 1
-                #print("BIG slope")
-                #print(next_waypoint.record())
-            elif sharp_error > 0.6 and current_speed > 85: # narrow turn
-                throttle = -1
-                brake = 1
-                #print("narrow turn")
-            elif self.delta_pitch < -0.35 and current_speed > 90 and not self.pitch_bypass: # small bump
-                throttle = 0
-                brake = 0
-                #print("slope:", round(self.delta_pitch, 3))
-                #print(next_waypoint.record())
-            elif abs(steering) > 0.3 and current_speed > 50: # steering control
-                throttle = 0.3
-                brake = 0
-                #print("hard steering")
-            elif wide_error > 0.05 and current_speed > 95: # wide turn
-                throttle = max(0.2, 1 - 6.6*pow(wide_error + current_speed*0.0015, 3))
-                brake = 0
-            elif current_speed > self.max_speed:
-                throttle = 0.9
+                # print("force brake")
+            elif wide_error >= 0.1 and current_speed >= 80:
+                danger = (pow(sharp_error, 1.4) * current_speed) - 0.80
+                # print(-0.001 * pow(danger, 3) + 1)
+                throttle = max(0.3, -0.04 * pow(danger, 2) + 1)
                 brake = 0
             else:
                 throttle = 1
                 brake = 0
-        
-        '''
-        # get errors from lat pid
-        error = abs(round(error, 3))
-        wide_error = abs(round(wide_error, 3))
-        sharp_error = abs(round(sharp_error, 3))
-        #print(error, wide_error, sharp_error)
-
-        # calculate change in pitch
-        pitch = float(next_waypoint.record().split(",")[4])
-        #print(next_waypoint.record())
-        
-        if pitch == 1.234567890:
-            # bypass pitch
-            self.pitch_bypass = True
-        elif pitch == 0.987654321:
-            # force break
-            self.force_brake = True
-        else:
-            self.pitch_bypass = False
-            self.force_brake = False
-            self.delta_pitch = pitch - self.old_pitch
-            self.old_pitch = pitch
-
-        # throttle/brake control
-        if self.force_brake:
-            throttle = -1
-            brake = 1
-            #print("force break")
-        elif self.delta_pitch < -2.3 and current_speed > 75 and not self.pitch_bypass: # big bump
-            throttle = -1
-            brake = 1
-            #print("BIG slope")
-            #print(next_waypoint.record())
-        elif sharp_error > 0.6 and current_speed > 85: # narrow turn
-            throttle = -1
-            brake = 1
-            #print("narrow turn")
-        elif self.delta_pitch < -0.35 and current_speed > 90 and not self.pitch_bypass: # small bump
-            throttle = 0
-            brake = 0
-            #print("slope:", round(self.delta_pitch, 3))
-            #print(next_waypoint.record())
-        elif abs(steering) > 0.3 and current_speed > 50: # steering control
-            throttle = 0.3
-            brake = 0
-            #print("hard steering")
-        elif wide_error > 0.05 and current_speed > 95: # wide turn
-            throttle = max(0.2, 1 - 6.6*pow(wide_error + current_speed*0.0015, 3))
-            brake = 0
-        elif current_speed > self.max_speed:
-            throttle = 0.9
-            brake = 0
-        else:
-            throttle = 1
-            brake = 0
-        
-        # DEBUGGING
-        #print(round(self.delta_pitch, 2))
-        #print(round(wide_error, 2))
-        '''
         
         return VehicleControl(throttle=throttle, steering=steering, brake=brake)
 
@@ -198,6 +138,9 @@ class LatPIDController(Controller):
         self.steering_boundary = steering_boundary
         self._error_buffer = deque(maxlen=10)
         self._dt = dt
+
+    def update_pid_config(self, updated_config):
+        self.config = updated_config["latitudinal_controller"]
 
     def run_in_series(self, next_waypoint: Transform, close_waypoint: Transform, far_waypoint: Transform, **kwargs) -> float:
         """

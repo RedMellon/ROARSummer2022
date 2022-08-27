@@ -6,7 +6,7 @@ from ROAR.planning_module.mission_planner.mission_planner import MissionPlanner
 from ROAR.planning_module.behavior_planner.behavior_planner import BehaviorPlanner
 
 # uncomment this out when done!!!
-import keyboard
+# import keyboard
 
 import logging
 from typing import Union
@@ -41,6 +41,9 @@ class SimpleWaypointFollowingLocalPlanner(LocalPlanner):
                          mission_planner=mission_planner,
                          behavior_planner=behavior_planner,
                          )
+        
+        self.agent = agent
+        
         self.logger = logging.getLogger("SimplePathFollowingLocalPlanner")
         self.set_mission_plan()
         self.logger.debug("Simple Path Following Local Planner Initiated")
@@ -67,14 +70,14 @@ class SimpleWaypointFollowingLocalPlanner(LocalPlanner):
         # 1. find closest waypoint
         # 2. remove all waypoints prior to closest waypoint
         
-        closest_waypoint = self.way_points_queue[0]
-        for waypoint in self.way_points_queue:
-            cur_dist = self.agent.vehicle.transform.location.distance(waypoint.location)
-            closest_dist = self.agent.vehicle.transform.location.distance(closest_waypoint.location)
-            if  cur_dist < closest_dist:
-                closest_waypoint = waypoint
-        while self.way_points_queue[0] != closest_waypoint:
-            self.way_points_queue.popleft()
+        # closest_waypoint = self.way_points_queue[0]
+        # for waypoint in self.way_points_queue:
+        #     cur_dist = self.agent.vehicle.transform.location.distance(waypoint.location)
+        #     closest_dist = self.agent.vehicle.transform.location.distance(closest_waypoint.location)
+        #     if  cur_dist < closest_dist:
+        #         closest_waypoint = waypoint
+        # while self.way_points_queue[0] != closest_waypoint:
+        #     self.way_points_queue.popleft()
 
 
     def is_done(self) -> bool:
@@ -123,6 +126,25 @@ class SimpleWaypointFollowingLocalPlanner(LocalPlanner):
             waypoint: Transform = self.way_points_queue[0]
             
             region = ""
+            for i in range(50):
+                check_waypoint = self.way_points_queue[i].record()
+                if check_waypoint == "2429.871338,115.6361008,3735.694336,0.418546557,1.23456789,-54.32391739" or check_waypoint == "2732.040527,99.62155914,4752.429688,0.015917312,1.23456789,4.800071716":
+                    # entering hills
+                    region = "hills"
+                    # configure new lookahead (_hills suffix)
+                    self.closeness_threshold_config = json.load(Path(
+                        self.agent.agent_settings.simple_waypoint_local_planner_config_file_path_hills).open(mode='r'))
+                    break
+                elif check_waypoint == "3240.574951,110.995369,5138.12207,0.014849209,1.23456789,172.0523605":
+                    # returning to town
+                    region = "town2"
+                    # configure new lookahead (original)
+                    self.closeness_threshold_config = json.load(Path(
+                        self.agent.agent_settings.simple_waypoint_local_planner_config_file_path).open(mode='r'))
+                    break
+
+            ''' old code - faulty
+            region = ""
             #print(waypoint.record())
             if waypoint.record() == "2456.807861,119.2908783,3713.735107,0.015503377,1.23456789,-51.4993515":
                 # entering hills
@@ -130,7 +152,8 @@ class SimpleWaypointFollowingLocalPlanner(LocalPlanner):
             elif waypoint.record() == "3240.574951,110.995369,5138.12207,0.014849209,1.23456789,172.0523605":
                 # returning to town
                 region = "town"
-            
+            '''
+
             curr_dist = vehicle_transform.location.distance(waypoint.location)
             if curr_dist < curr_closest_dist:
                 # if i find a waypoint that is closer to me than before
@@ -144,18 +167,21 @@ class SimpleWaypointFollowingLocalPlanner(LocalPlanner):
         current_speed = Vehicle.get_speed(self.agent.vehicle)
         target_waypoint = self.way_points_queue[0]
         
-        if keyboard.is_pressed("space"):
-            print(target_waypoint.record())
-            #print(self.agent.vehicle.transform.location)
-            #print(self.agent.vehicle.transform.record())
-            pass
-        if keyboard.is_pressed("l"):
-            print(vehicle_transform.location)
+        # if keyboard.is_pressed("space"):
+        #     print(target_waypoint.record())
+        #     #print(self.agent.vehicle.transform.location)
+        #     #print(self.agent.vehicle.transform.record())
+        #     pass
+        # if keyboard.is_pressed("l"):
+        #     print(vehicle_transform.location)
         
-        waypoint_lookahead = round(pow(current_speed, 2)*0.0016 + 0.7*current_speed)
-        far_waypoint = self.way_points_queue[waypoint_lookahead]
-        close_waypoint = self.way_points_queue[min(120, waypoint_lookahead)]
-        
+        #waypoint_lookahead = round(pow(current_speed, 2.2)*0.0007 + 0.5*current_speed)
+        town_waypoint_lookahead = round(pow(current_speed, 2.5)*0.000247)        
+        hills_waypoint_lookahead = round(pow(current_speed, 2)*0.0035)        
+        far_waypoint = self.way_points_queue[town_waypoint_lookahead]
+        #close_waypoint = self.way_points_queue[min(110, waypoint_lookahead)]
+        close_waypoint = self.way_points_queue[hills_waypoint_lookahead]
+
         control: VehicleControl = self.controller.run_in_series(next_waypoint=target_waypoint, close_waypoint=close_waypoint, far_waypoint=far_waypoint, region=region)
         # self.logger.debug(f"\n"
         #                   f"Curr Transform: {self.agent.vehicle.transform}\n"

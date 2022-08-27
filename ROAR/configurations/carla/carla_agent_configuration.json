@@ -95,10 +95,14 @@
   "_comments": "// if you would like to use your own map, please put it under ROAR/configurations/YOUR_WAYPOINT.txt",
   "waypoint_file_path": "./ROAR/configurations/mcw1_noround.txt",
   "pid_config_file_path": "./ROAR/configurations/carla/carla_pid_fast_config.json",
+  "pid_config_file_path_hills": "./ROAR/configurations/carla/carla_pid_fast_config_hills.json",
+  
   "simple_waypoint_local_planner_config_file_path": "./ROAR/configurations/carla/carla_pid_fast_waypoint_lookahead.json",
+  "simple_waypoint_local_planner_config_file_path_hills": "./ROAR/configurations/carla/carla_pid_fast_waypoint_lookahead_hills.json",
+
   "output_data_folder_path": "./data/output",
   "enable_autopilot": true,
-  "spawn_point_id": 3,
+  "spawn_point_id": 12,
   "show_sensors_data": true,
   "save_sensor_data": false,
   "max_speed": 300,
